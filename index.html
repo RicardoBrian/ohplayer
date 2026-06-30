@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OhPlayer - Google Drive Video Player</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f0f13;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+      letter-spacing: -0.5px;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 28px;
+    }
+
+    .card {
+      background: #1a1a22;
+      border: 1px solid #2a2a36;
+      border-radius: 12px;
+      padding: 20px;
+      width: 100%;
+      max-width: 800px;
+      margin-bottom: 16px;
+    }
+
+    .card h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #aaa;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    input[type="text"], input[type="file"] {
+      flex: 1;
+      background: #0f0f13;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #e0e0e0;
+      font-size: 0.9rem;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: #5b6af0;
+    }
+
+    input[type="file"] {
+      cursor: pointer;
+      padding: 8px 14px;
+    }
+
+    input[type="file"]::file-selector-button {
+      background: #2a2a36;
+      border: 1px solid #444;
+      border-radius: 6px;
+      color: #ccc;
+      cursor: pointer;
+      font-size: 0.82rem;
+      margin-right: 10px;
+      padding: 4px 10px;
+    }
+
+    .btn {
+      background: #5b6af0;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 10px 20px;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn:hover { background: #4a58e0; }
+    .btn:disabled { background: #333; color: #666; cursor: default; }
+
+    .btn-sm {
+      font-size: 0.8rem;
+      padding: 6px 12px;
+    }
+
+    .subtitle-list {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .subtitle-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #0f0f13;
+      border: 1px solid #2a2a36;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+    }
+
+    .subtitle-item .lang-label {
+      flex: 1;
+      color: #ccc;
+    }
+
+    .subtitle-item .remove-btn {
+      background: none;
+      border: none;
+      color: #666;
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 0 4px;
+      transition: color 0.2s;
+    }
+
+    .subtitle-item .remove-btn:hover { color: #e05b5b; }
+
+    .lang-input {
+      width: 80px;
+      flex: none;
+    }
+
+    #player-wrapper {
+      width: 100%;
+      max-width: 800px;
+      display: none;
+    }
+
+    #player-wrapper.visible { display: block; }
+
+    .video-container {
+      position: relative;
+      width: 100%;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    video {
+      width: 100%;
+      display: block;
+    }
+
+    .error-msg {
+      background: #2a1515;
+      border: 1px solid #5a2020;
+      border-radius: 8px;
+      color: #e08080;
+      font-size: 0.85rem;
+      margin-top: 12px;
+      padding: 10px 14px;
+      display: none;
+    }
+
+    .error-msg.visible { display: block; }
+
+    .tip {
+      font-size: 0.78rem;
+      color: #555;
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+
+    .tip a { color: #5b6af0; text-decoration: none; }
+    .tip a:hover { text-decoration: underline; }
+
+    .track-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .track-btn {
+      background: #2a2a36;
+      border: 1px solid #444;
+      border-radius: 6px;
+      color: #ccc;
+      cursor: pointer;
+      font-size: 0.8rem;
+      padding: 5px 12px;
+      transition: all 0.2s;
+    }
+
+    .track-btn:hover, .track-btn.active {
+      background: #5b6af0;
+      border-color: #5b6af0;
+      color: #fff;
+    }
+
+    @media (max-width: 500px) {
+      .input-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>OhPlayer</h1>
+<p class="subtitle">구글 드라이브 영상 + 자막 파일 플레이어</p>
+
+<div class="card">
+  <h2>구글 드라이브 영상 링크</h2>
+  <div class="input-row">
+    <input type="text" id="drive-url" placeholder="https://drive.google.com/file/d/FILE_ID/view?usp=sharing" />
+    <button class="btn" onclick="loadVideo()">재생</button>
+  </div>
+  <p class="tip">
+    공유 가능한 구글 드라이브 링크를 붙여넣으세요.<br>
+    파일 공유 설정이 <strong>링크가 있는 모든 사용자</strong>로 되어 있어야 합니다.
+  </p>
+  <div class="error-msg" id="error-msg"></div>
+</div>
+
+<div class="card">
+  <h2>자막 파일 추가 <span style="color:#555;font-size:0.8rem;font-weight:400;">(선택, .vtt / .srt)</span></h2>
+  <div class="input-row">
+    <input type="text" id="lang-name" class="lang-input" placeholder="언어 (예: 한국어)" value="한국어" />
+    <input type="file" id="subtitle-file" accept=".vtt,.srt" />
+    <button class="btn btn-sm" onclick="addSubtitle()">추가</button>
+  </div>
+  <div class="subtitle-list" id="subtitle-list"></div>
+</div>
+
+<div id="player-wrapper">
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div class="video-container">
+      <video id="video" controls crossorigin="anonymous"></video>
+    </div>
+  </div>
+  <div class="card">
+    <h2>자막 트랙</h2>
+    <div class="track-controls" id="track-controls">
+      <button class="track-btn active" onclick="setTrack(-1, this)">자막 끄기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const subtitles = []; // { label, url, kind }
+
+  function extractFileId(url) {
+    // Handles: /file/d/ID/view, /open?id=ID, id=ID param
+    let m;
+    m = url.match(/\/file\/d\/([^/?&#]+)/);
+    if (m) return m[1];
+    m = url.match(/[?&]id=([^&]+)/);
+    if (m) return m[1];
+    m = url.match(/\/open\?id=([^&]+)/);
+    if (m) return m[1];
+    // If it's just an ID itself (alphanumeric + _-)
+    if (/^[\w-]{20,}$/.test(url.trim())) return url.trim();
+    return null;
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.classList.add('visible');
+  }
+
+  function clearError() {
+    document.getElementById('error-msg').classList.remove('visible');
+  }
+
+  function loadVideo() {
+    clearError();
+    const raw = document.getElementById('drive-url').value.trim();
+    if (!raw) { showError('링크를 입력해주세요.'); return; }
+
+    const fileId = extractFileId(raw);
+    if (!fileId) { showError('유효한 구글 드라이브 링크를 입력해주세요.'); return; }
+
+    // Use the direct download/preview embed URL
+    const src = `https://drive.google.com/uc?export=download&id=${fileId}`;
+
+    const video = document.getElementById('video');
+
+    // Remove existing tracks
+    while (video.firstChild) video.removeChild(video.firstChild);
+
+    video.src = src;
+
+    // Attach subtitle tracks
+    subtitles.forEach((s, i) => {
+      const track = document.createElement('track');
+      track.kind = 'subtitles';
+      track.label = s.label;
+      track.src = s.url;
+      track.srclang = s.srclang;
+      if (i === 0) track.default = true;
+      video.appendChild(track);
+    });
+
+    video.load();
+
+    document.getElementById('player-wrapper').classList.add('visible');
+    rebuildTrackButtons();
+
+    video.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    video.addEventListener('error', () => {
+      const err = video.error;
+      if (err) {
+        showError(`영상 로드 실패 (code ${err.code}). 파일이 공개 공유 상태인지 확인하세요. 구글 드라이브는 대용량 파일의 직접 스트리밍을 제한할 수 있습니다.`);
+      }
+    }, { once: true });
+  }
+
+  function parseSRT(srt) {
+    // Convert SRT to WebVTT
+    let vtt = 'WEBVTT\n\n';
+    const blocks = srt.trim().split(/\n\s*\n/);
+    for (const block of blocks) {
+      const lines = block.trim().split('\n');
+      if (lines.length < 3) continue;
+      // Skip sequence number line
+      const timeLine = lines.find(l => l.includes('-->'));
+      if (!timeLine) continue;
+      const timeConverted = timeLine.replace(/,/g, '.');
+      const textLines = lines.slice(lines.indexOf(timeLine) + 1);
+      vtt += timeConverted + '\n' + textLines.join('\n') + '\n\n';
+    }
+    return vtt;
+  }
+
+  function addSubtitle() {
+    const fileInput = document.getElementById('subtitle-file');
+    const langInput = document.getElementById('lang-name');
+    const file = fileInput.files[0];
+    if (!file) { alert('자막 파일을 선택해주세요.'); return; }
+
+    const label = langInput.value.trim() || file.name;
+    const srclang = langInput.value.trim().toLowerCase().slice(0, 2) || 'ko';
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      let content = e.target.result;
+      let blobType = 'text/vtt';
+
+      if (file.name.endsWith('.srt')) {
+        content = parseSRT(content);
+      }
+
+      const blob = new Blob([content], { type: blobType });
+      const url = URL.createObjectURL(blob);
+
+      subtitles.push({ label, url, srclang });
+      renderSubtitleList();
+
+      // Reset input
+      fileInput.value = '';
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  function removeSubtitle(index) {
+    URL.revokeObjectURL(subtitles[index].url);
+    subtitles.splice(index, 1);
+    renderSubtitleList();
+  }
+
+  function renderSubtitleList() {
+    const list = document.getElementById('subtitle-list');
+    list.innerHTML = '';
+    subtitles.forEach((s, i) => {
+      const item = document.createElement('div');
+      item.className = 'subtitle-item';
+      item.innerHTML = `
+        <span class="lang-label">📄 ${s.label}</span>
+        <button class="remove-btn" onclick="removeSubtitle(${i})" title="제거">✕</button>
+      `;
+      list.appendChild(item);
+    });
+  }
+
+  function rebuildTrackButtons() {
+    const container = document.getElementById('track-controls');
+    container.innerHTML = '<button class="track-btn active" onclick="setTrack(-1, this)">자막 끄기</button>';
+
+    const video = document.getElementById('video');
+    // Wait for tracks to load
+    setTimeout(() => {
+      const tracks = video.textTracks;
+      for (let i = 0; i < tracks.length; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'track-btn';
+        btn.textContent = tracks[i].label || `트랙 ${i + 1}`;
+        btn.onclick = function() { setTrack(i, this); };
+        container.appendChild(btn);
+      }
+    }, 500);
+  }
+
+  function setTrack(index, btn) {
+    const video = document.getElementById('video');
+    const tracks = video.textTracks;
+
+    for (let i = 0; i < tracks.length; i++) {
+      tracks[i].mode = (i === index) ? 'showing' : 'hidden';
+    }
+
+    document.querySelectorAll('.track-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  // Allow pressing Enter in URL field
+  document.getElementById('drive-url').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') loadVideo();
+  });
+</script>
+
+</body>
+</html>
